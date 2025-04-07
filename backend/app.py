@@ -8,11 +8,22 @@ from ai_routes import ai_bp
 from datetime import timedelta
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+import logging
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("voltify.log"),
+        logging.StreamHandler()
+    ]
+)
 
 app = Flask(__name__)
 CORS(app)
 init_db(app)
+limiter = Limiter(get_remote_address, app=app, default_limits=["100 per hour"])
+
 
 app.secret_key = os.getenv('SECRET_KEY')
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)

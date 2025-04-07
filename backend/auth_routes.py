@@ -2,6 +2,9 @@ from flask import Blueprint, request, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from db import mongo
 from logic.validators import validate_user_input
+import logging
+from app import limiter
+
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -33,6 +36,7 @@ def register():
     return {"message": "User registered"}, 201
 
 @auth_bp.route("/login", methods=["POST"])
+@limiter.limit("5 per minute")
 def login():
     data = request.get_json()
     valid, error = validate_user_input(data, ["username", "password"])
@@ -40,7 +44,9 @@ def login():
         return {"error": error}, 400
 
     user = mongo.db.users.find_one({"username": data["username"]})
+    logging.info(f"Login attempt for user: {data['username']}")
     if not user or not check_password_hash(user["password"], data["password"]):
+        logging.warning(f"Failed login attempt for user: {data['username']}")
         return {"error": "Invalid credentials"}, 401
 
     session["username"] = data["username"]

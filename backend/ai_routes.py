@@ -2,11 +2,13 @@ from flask import Blueprint, request, session
 import openai
 import os
 from logic.ai_helpers import build_task_prompt, parse_openai_response
+from app import limiter
 
 ai_bp = Blueprint("ai", __name__)
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @ai_bp.route("/recommend", methods=["POST"])
+@limiter.limit("10 per hour")
 def recommend():
     if "username" not in session:
         return {"error": "Unauthorized"}, 401

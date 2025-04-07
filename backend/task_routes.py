@@ -9,6 +9,7 @@ from logic.telegram_notifier import send_telegram_message
 from logic.ai_helpers import parse_openai_response
 import openai
 import os
+import logging
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -57,6 +58,7 @@ def create_task():
 
     result = mongo.db.tasks.insert_one(task)
     task["_id"] = str(result.inserted_id)
+    logging.info(f"Task created for user '{username}': {task['title']}")
 
     user = mongo.db.users.find_one({"username": username})
     if user and user.get("telegram_chat_id"):
@@ -90,6 +92,7 @@ def update_task(task_id):
 
     updates = {k: v for k, v in data.items() if k in ["title", "description", "due_date", "status", "category", "estimated_time"]}
     mongo.db.tasks.update_one({"_id": ObjectId(task_id)}, {"$set": updates})
+    logging.info(f"Task updated for user '{username}': {task_id}")
 
     if task["status"] != "done" and updates.get("status") == "done":
         user = mongo.db.users.find_one({"username": username})
