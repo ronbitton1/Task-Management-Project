@@ -3,7 +3,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from db import mongo
 from logic.validators import validate_user_input
 import logging
-from app import limiter
+from limiter_config import limiter
 
 
 auth_bp = Blueprint("auth", __name__)

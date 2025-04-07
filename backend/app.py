@@ -6,8 +6,7 @@ from auth_routes import auth_bp
 from task_routes import task_bp
 from ai_routes import ai_bp
 from datetime import timedelta
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+from limiter_config import limiter
 import logging
 
 logging.basicConfig(
@@ -22,7 +21,7 @@ logging.basicConfig(
 app = Flask(__name__)
 CORS(app)
 init_db(app)
-limiter = Limiter(get_remote_address, app=app, default_limits=["100 per hour"])
+limiter.init_app(app)
 
 
 app.secret_key = os.getenv('SECRET_KEY')
