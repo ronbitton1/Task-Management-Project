@@ -19,7 +19,17 @@ def register():
         return {"error": "User already exists"}, 400
 
     hashed = generate_password_hash(password)
-    mongo.db.users.insert_one({"username": username, "password": hashed})
+
+    user_doc = {
+        "username": username,
+        "password": hashed
+    }
+
+    telegram_chat_id = data.get("telegram_chat_id")
+    if telegram_chat_id:
+        user_doc["telegram_chat_id"] = telegram_chat_id
+
+    mongo.db.users.insert_one(user_doc)
     return {"message": "User registered"}, 201
 
 @auth_bp.route("/login", methods=["POST"])
@@ -42,4 +52,10 @@ def login():
 def logout():
     session.clear()
     return {"message": "Logged out"}, 200
- 
+
+@auth_bp.route("/me", methods=["GET"])
+def get_current_user():
+    username = session.get("username")
+    if username:
+        return {"username": username}, 200
+    return {"error": "Unauthorized"}, 401

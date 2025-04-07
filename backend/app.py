@@ -6,6 +6,9 @@ from auth_routes import auth_bp
 from task_routes import task_bp
 from ai_routes import ai_bp
 from datetime import timedelta
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
 
 app = Flask(__name__)
 CORS(app)
