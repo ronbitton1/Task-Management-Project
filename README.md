@@ -140,18 +140,9 @@ frontend/
 8. Optional: show `/api/ai/recommend` result
 9. End with a quick scroll of the code + README
 
-> Record using Loom, OBS, or screen recorder. Keep it ~3–5 minutes.
+> Recorded with Loom.
 
 ---
-
-## ✅ Submission Checklist
-
-- [x] Push your full project to GitHub (backend + frontend)
-- [x] Add a `.env.example` file with placeholder secrets
-- [x] Ensure your README includes setup, routes, structure, and security info
-- [x] Record a demo video (3–5 minutes) showing the main features
-- [x] Submit your GitHub repo link and video link by **April 8, 2025** to `matan@justvoltify.com`
-
 
 ## 🙌 Credits
 Made with ❤️ by Ron Bitton.
