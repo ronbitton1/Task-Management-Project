@@ -154,5 +154,5 @@ frontend/
 
 
 ## 🙌 Credits
-Made with ❤️ by [Your Name]
+Made with ❤️ by Ron Bitton.
 
