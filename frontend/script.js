@@ -5,6 +5,7 @@ const qs = id => document.getElementById(id);
 window.onload = () => {
   setupThemeToggle();
   checkSession();
+  setupSidebarNavigation();
   setupAuth();
   setupTaskHandlers();
   setupAI();
@@ -14,13 +15,15 @@ window.onload = () => {
 function setupThemeToggle() {
   const btn = document.createElement('button');
   btn.id = 'dark-toggle';
-  btn.textContent = 'Toggle Dark Mode';
+  btn.textContent = '☀️ / 🌙';
   document.body.appendChild(btn);
   btn.onclick = () => document.body.classList.toggle('dark-mode');
 }
 
 function checkSession() {
-  fetch(`${API}/auth/me`).then(res => res.json()).then(data => {
+  fetch(`${API}/auth/me`, {
+    credentials: 'include'
+  }).then(res => res.json()).then(data => {
     if (data.username) {
       showDashboard();
     } else {
@@ -31,19 +34,49 @@ function checkSession() {
 
 function showDashboard() {
   qs('auth').style.display = 'none';
-  qs('dashboard').style.display = 'block';
-  qs('ai-section').style.display = 'block';
-  qs('telegram-section').style.display = 'block';
   qs('logout-btn').style.display = 'block';
-  loadTasks();
+  qs('sidebar').style.display = 'flex';
+  switchTab('dashboard');
 }
 
 function hideDashboard() {
   qs('auth').style.display = 'block';
-  qs('dashboard').style.display = 'none';
-  qs('ai-section').style.display = 'none';
-  qs('telegram-section').style.display = 'none';
+  ['dashboard', 'ai-section', 'telegram-section', 'add-task-section'].forEach(id => {
+    qs(id).style.display = 'none';
+  });
   qs('logout-btn').style.display = 'none';
+  qs('sidebar').style.display = 'none';
+}
+
+function switchTab(tabId) {
+  ['dashboard', 'ai-section', 'telegram-section', 'add-task-section'].forEach(id => {
+    qs(id).style.display = id === tabId ? 'block' : 'none';
+  });
+  if (tabId === 'dashboard') {
+    loadTasks();
+  }
+}
+
+function displayMessage(msg, isError = false) {
+  const el = qs('auth-message');
+  el.textContent = msg;
+  el.className = isError ? 'error-message' : 'success-message';
+  el.style.display = 'block';
+}
+
+function setupSidebarNavigation() {
+  qs('tab-tasks').onclick = () => switchTab('dashboard');
+  qs('tab-add-task').onclick = () => switchTab('add-task-section');
+  qs('tab-ai').onclick = () => switchTab('ai-section');
+  qs('tab-telegram').onclick = () => switchTab('telegram-section');
+  qs('logout-btn').onclick = () => {
+    fetch(`${API}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    }).then(() => {
+      hideDashboard();
+    });
+  };
 }
 
 function setupAuth() {
@@ -51,54 +84,111 @@ function setupAuth() {
     fetch(`${API}/auth/login`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
+      credentials: 'include',
       body: JSON.stringify({
         username: qs('auth-username').value,
         password: qs('auth-password').value
       })
-    }).then(r => r.json()).then(checkSession);
+    })
+    .then(res => res.json().then(data => ({ status: res.status, data })))
+    .then(({ status, data }) => {
+      if (status === 200) {
+        showDashboard();
+      } else {
+        displayMessage(data.error || 'Login failed', true);
+      }
+    });
   };
 
   qs('register-btn').onclick = () => {
     fetch(`${API}/auth/register`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
+      credentials: 'include',
       body: JSON.stringify({
         username: qs('auth-username').value,
         password: qs('auth-password').value
       })
-    }).then(r => r.json()).then(checkSession);
-  };
-
-  qs('logout-btn').onclick = () => {
-    fetch(`${API}/auth/logout`, { method: 'POST' }).then(checkSession);
+    })
+    .then(res => res.json().then(data => ({ status: res.status, data })))
+    .then(({ status, data }) => {
+      if (status === 201) {
+        displayMessage("Registration successful! You can now log in.");
+        qs('auth-username').value = "";
+        qs('auth-password').value = "";
+      } else {
+        displayMessage(data.error || "Registration failed", true);
+      }
+    });
   };
 }
 
 function setupTaskHandlers() {
-  qs('add-task-btn').onclick = () => {
-    fetch(`${API}/tasks`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        title: qs('new-title').value,
-        description: qs('new-desc').value,
-        due_date: qs('new-due').value,
-        category: qs('new-category').value
+    const msg = document.createElement('div');
+    msg.id = 'task-message';
+    msg.className = 'auth-message';
+    msg.style.display = 'none';
+    qs('add-task-btn').after(msg);
+  
+    qs('add-task-btn').onclick = () => {
+      const title = qs('new-title').value.trim();
+      const desc = qs('new-desc').value.trim();
+      const due = qs('new-due').value.trim();
+      const category = qs('new-category').value.trim();
+  
+      // Simple frontend validation
+      if (!title || !due) {
+        msg.textContent = 'Title and Due Date are required.';
+        msg.className = 'auth-message error-message';
+        msg.style.display = 'block';
+        return;
+      }
+  
+      // Submit task to backend
+      fetch(`${API}/tasks/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ title, description: desc, due_date: due, category })
       })
-    }).then(() => loadTasks());
-  };
-}
+      .then(res => res.json().then(data => ({ status: res.status, data })))
+      .then(({ status, data }) => {
+        if (status === 201 || status === 200) {
+          msg.style.display = 'none';
+          qs('new-title').value = '';
+          qs('new-desc').value = '';
+          qs('new-due').value = '';
+          qs('new-category').value = '';
+          loadTasks();
+        } else {
+          msg.textContent = data.error || 'Failed to add task.';
+          msg.className = 'auth-message error-message';
+          msg.style.display = 'block';
+        }
+      });
+    };
+  }  
+  
 
 function loadTasks() {
-  fetch(`${API}/tasks`).then(r => r.json()).then(tasks => {
+  fetch(`${API}/tasks/`, {
+    credentials: 'include'
+  }).then(r => r.json()).then(tasks => {
     const list = qs('task-list');
     list.innerHTML = '';
     tasks.forEach(t => {
+      const isDone = t.status === 'done';
+      const statusLabel = isDone ? `${t.status} ✅` : t.status;
+      const toggleLabel = isDone ? 'Mark as Open' : 'Mark as Done';
+      const nextStatus = isDone ? 'open' : 'done';
+
       const div = document.createElement('div');
+      const categoryText = t.category ? `<em>Category: ${t.category}</em><br>` : '';
       div.innerHTML = `
-        <strong>${t.title}</strong> - ${t.status} - due ${t.due_date}<br>
+        <strong>${t.title}</strong> - ${statusLabel} - due ${t.due_date}<br>
+        ${categoryText}
         ${t.description}<br>
-        <button onclick="markDone('${t._id}')">Mark Done</button>
+        <button onclick="markDone('${t._id}', '${nextStatus}')">${toggleLabel}</button>
         <button onclick="deleteTask('${t._id}')">Delete</button>
         <hr>
       `;
@@ -107,28 +197,36 @@ function loadTasks() {
   });
 }
 
-function markDone(id) {
+function markDone(id, status) {
   fetch(`${API}/tasks/${id}`, {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ status: 'done' })
+    credentials: 'include',
+    body: JSON.stringify({ status })
   }).then(() => loadTasks());
 }
 
 function deleteTask(id) {
-  fetch(`${API}/tasks/${id}`, { method: 'DELETE' }).then(() => loadTasks());
+  fetch(`${API}/tasks/${id}`, {
+    method: 'DELETE',
+    credentials: 'include'
+  }).then(() => loadTasks());
 }
 
 function setupAI() {
-  qs('ai-recommend-btn').onclick = () => {
-    fetch(`${API}/ai/recommend`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ description: qs('ai-input').value })
-    })
-    .then(r => r.json())
-    .then(d => qs('ai-result').textContent = d.recommendation || d.error || 'Error');
-  };
+  const btn = qs('ai-recommend-btn');
+  if (btn) {
+    btn.onclick = () => {
+      fetch(`${API}/ai/recommend`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        credentials: 'include',
+        body: JSON.stringify({ description: qs('ai-input').value })
+      })
+      .then(r => r.json())
+      .then(d => qs('ai-result').textContent = d.recommendation || d.error || 'Error');
+    };
+  }
 }
 
 function setupTelegram() {
@@ -136,6 +234,7 @@ function setupTelegram() {
     fetch(`${API}/tasks/update-chat-id`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
+      credentials: 'include',
       body: JSON.stringify({ telegram_chat_id: qs('telegram-id').value })
     });
   };

@@ -10,6 +10,8 @@ from logic.ai_helpers import parse_openai_response
 import openai
 import os
 import logging
+from flask_cors import cross_origin
+from datetime import datetime
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -19,7 +21,8 @@ def serialize_task(task):
     task["_id"] = str(task["_id"])
     return task
 
-@task_bp.route("/", methods=["GET"])
+@task_bp.route("/", methods=["GET", "OPTIONS"])
+@cross_origin(supports_credentials=True)
 def get_tasks():
     username = session.get("username")
     if not username:
@@ -34,7 +37,8 @@ def get_tasks():
     tasks = mongo.db.tasks.find(query)
     return [serialize_task(t) for t in tasks], 200
 
-@task_bp.route("/", methods=["POST"])
+@task_bp.route("/", methods=["POST", "OPTIONS"])
+@cross_origin(supports_credentials=True)
 def create_task():
     username = session.get("username")
     if not username:
@@ -67,7 +71,8 @@ def create_task():
 
     return task, 201
 
-@task_bp.route("/<task_id>", methods=["GET"])
+@task_bp.route("/<task_id>", methods=["GET", "OPTIONS"])
+@cross_origin(supports_credentials=True)
 def get_task(task_id):
     username = session.get("username")
     if not username:
@@ -79,7 +84,8 @@ def get_task(task_id):
 
     return serialize_task(task), 200
 
-@task_bp.route("/<task_id>", methods=["PUT"])
+@task_bp.route("/<task_id>", methods=["PUT", "OPTIONS"])
+@cross_origin(supports_credentials=True)
 def update_task(task_id):
     username = session.get("username")
     if not username:
@@ -103,7 +109,8 @@ def update_task(task_id):
     updated_task = mongo.db.tasks.find_one({"_id": ObjectId(task_id)})
     return serialize_task(updated_task), 200
 
-@task_bp.route("/<task_id>", methods=["DELETE"])
+@task_bp.route("/<task_id>", methods=["DELETE", "OPTIONS"])
+@cross_origin(supports_credentials=True)
 def delete_task(task_id):
     username = session.get("username")
     if not username:
@@ -115,30 +122,59 @@ def delete_task(task_id):
 
     return {"message": "Task deleted"}, 200
 
-@task_bp.route("/weekly-summary", methods=["POST"])
+@task_bp.route("/weekly-summary", methods=["POST", "OPTIONS"])
+@cross_origin(supports_credentials=True)
 def send_weekly_summary():
     users = mongo.db.users.find({"telegram_chat_id": {"$exists": True}})
     for user in users:
         username = user["username"]
         chat_id = user["telegram_chat_id"]
         tasks = list(mongo.db.tasks.find({"user": username, "status": "open"}))
+
         if not tasks:
+            print(f"[{username}] No open tasks found.")
             continue
-        task_descriptions = "\n".join([f"- {t['title']} (due {t['due_date']})" for t in tasks])
-        prompt = f"Summarize and categorize these tasks with time estimates:\n{task_descriptions}"
+
+        task_lines = []
+        for t in tasks:
+            title = t.get("title", "").strip()
+            due = t.get("due_date", "").strip()
+            desc = t.get("description", "").strip()
+            category = t.get("category", "No Category").strip()
+            if not title or not due:
+                continue
+            task_lines.append(f"- Title: {title} | Category: {category} | Due: {due} | Description: {desc}")
+
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        prompt = (
+            f"Today is {today_str}.\n"
+            "Summarize the following tasks in markdown.\n"
+            "- Group by category (use 'General' if missing)\n"
+            "- For each task, include: title (bold), due date, description, and estimated time\n"
+            "- Mark tasks due in the next 7 days as '**Due Soon**'\n"
+            "- No greetings or extra commentary\n\n"
+            "Tasks:\n" +
+            "\n".join(task_lines)
+        )
+
         try:
-            response = openai.ChatCompletion.create(
+            response = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": prompt}],
-                max_tokens=300
+                max_tokens=650,
+                temperature=0.7
             )
-            summary = parse_openai_response(response)
-            send_telegram_message(f"📊 Weekly Summary:\n{summary}", chat_id)
+            summary = response.choices[0].message.content.strip()
+            send_telegram_message(f"📊 Weekly Summary for {username}:\n\n{summary}", chat_id)
         except Exception as e:
             print(f"Failed to send summary to {username}: {e}")
+
     return {"message": "Summaries sent"}, 200
 
-@task_bp.route("/update-chat-id", methods=["POST"])
+
+
+@task_bp.route("/update-chat-id", methods=["POST", "OPTIONS"])
+@cross_origin(supports_credentials=True)
 def update_telegram_chat_id():
     username = session.get("username")
     if not username:
@@ -151,3 +187,6 @@ def update_telegram_chat_id():
 
     mongo.db.users.update_one({"username": username}, {"$set": {"telegram_chat_id": chat_id}})
     return {"message": "Telegram chat ID updated"}, 200
+
+
+
