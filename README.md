@@ -34,8 +34,8 @@ Just open `index.html` in a browser and test it live with the Flask backend.
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/voltify.git
-cd voltify
+git clone https://github.com/ronbitton1/Task-Management-Project.git
+cd Task-Management-Project
 ```
 
 ### 2. Create a `.env` file
