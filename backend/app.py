@@ -1,5 +1,5 @@
 import os
-from flask import Flask, session, render_template, send_from_directory
+from flask import Flask
 from flask_cors import CORS
 from db import init_db
 from auth_routes import auth_bp
@@ -18,43 +18,33 @@ logging.basicConfig(
     ]
 )
 
-# Serve frontend
-app = Flask(__name__, static_folder="static", template_folder="templates")
-
-# For production: replace localhost with deployed domain
-CORS(app, origins=["*"], supports_credentials=True)
-
+app = Flask(__name__)
+CORS(app, origins=["http://localhost:8000"], supports_credentials=True) #TODO: Remember to add origins - the domain of the deployed frontend
 init_db(app)
 limiter.init_app(app)
 
+
 app.secret_key = os.getenv('SECRET_KEY')
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
-
 if os.environ.get("FLASK_ENV") == "production":
     app.config['SESSION_COOKIE_SECURE'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = "None"
 else:
-    app.config['SESSION_COOKIE_SECURE'] = False
+    app.config['SESSION_COOKIE_SECURE'] = False #TODO: Check about changing it to True when deploying.
     app.config['SESSION_COOKIE_SAMESITE'] = "Lax"
 
-app.config['SESSION_COOKIE_HTTPONLY'] = False
+app.config['SESSION_COOKIE_DOMAIN'] = 'localhost'
 app.config['SESSION_COOKIE_PATH'] = '/'
-app.config['SESSION_COOKIE_DOMAIN'] = None  # Let the browser infer domain
+app.config['SESSION_COOKIE_HTTPONLY'] = False
 
-# Register routes
+
 app.register_blueprint(auth_bp, url_prefix="/api/auth")
 app.register_blueprint(task_bp, url_prefix="/api/tasks")
 app.register_blueprint(ai_bp, url_prefix="/api/ai")
 
-# Serve frontend index.html
 @app.route("/")
 def index():
-    return render_template("index.html")
-
-# Serve static files (JS/CSS)
-@app.route("/static/<path:path>")
-def send_static(path):
-    return send_from_directory("static", path)
+    return {"message": "Voltify Task Manager API"}, 200
 
 @app.after_request
 def log_cors_headers(response):
@@ -64,5 +54,4 @@ def log_cors_headers(response):
     return response
 
 if __name__ == "__main__":
-    # Run publicly on port 5000
-    app.run(debug=False, host="0.0.0.0", port=5000)
+    app.run(debug=True)
